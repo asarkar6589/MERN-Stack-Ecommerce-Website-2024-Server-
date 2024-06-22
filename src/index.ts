@@ -31,7 +31,7 @@ connectDataBase({ url });
 app.use(express.json()); // to get the data from body
 app.use(
   cors({
-    origin: "https://mern-stack-ecommerce-website-2024-client.vercel.app/",
+    origin: "https://mern-stack-ecommerce-website-2024-client.vercel.app",
     credentials: true,
   })
 );

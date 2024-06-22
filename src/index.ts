@@ -16,23 +16,25 @@ import { connectDataBase } from "./utils/connectDb.js";
 import { errorMiddleware } from "./utils/error.js";
 
 dotenv.config({
-    path: ".env"
+  path: ".env",
 });
 const port_number: number = Number(process.env.PORT_NUMBER) | 5000;
-const url:string = process.env.MONGO_URL || "";
+const url: string = process.env.MONGO_URL || "";
 const stripeKey = process.env.STRIPE_KEY || "";
 
 export const stripe = new Stripe(stripeKey);
 
 const app = express();
-connectDataBase({url});
+connectDataBase({ url });
 
 // middlewares
 app.use(express.json()); // to get the data from body
-app.use(cors({
-    origin: "http://localhost:5173",
-    credentials: true
-}));
+app.use(
+  cors({
+    origin: "https://mern-stack-ecommerce-website-2024-client.vercel.app/",
+    credentials: true,
+  })
+);
 app.use(cookieParser()); // to get the value of token from cookie
 
 // router middlewares
@@ -40,11 +42,11 @@ app.use("/api/v1/user", UserRouter);
 app.use("/api/v1/product", ProductRouter);
 app.use("/api/v1/comment", CommentRouter);
 app.use("/api/v1/coupon", CouponRouter);
-app.use("/api/v1/order", OrderRouter); 
-app.use("/api/v1/pay", PayementRouter); 
-app.use("/api/v1/order/canceled", DeletedOrder); 
-app.use("/api/v1/stats", StatsRouter); 
-app.use("/api/v1/feedback", FeedbackRouter); 
+app.use("/api/v1/order", OrderRouter);
+app.use("/api/v1/pay", PayementRouter);
+app.use("/api/v1/order/canceled", DeletedOrder);
+app.use("/api/v1/stats", StatsRouter);
+app.use("/api/v1/feedback", FeedbackRouter);
 
 // multer middleware
 app.use("/uploads", express.static("uploads"));
@@ -60,9 +62,9 @@ When we write this url in our browser, it shows error that is cannot get request
 app.use(errorMiddleware);
 
 app.get("/", (req, res: Response) => {
-    res.json("Server Working")
+  res.json("Server Working");
 });
 
 app.listen(port_number, () => {
-    console.log(`Server is working on ${port_number}`);
+  console.log(`Server is working on ${port_number}`);
 });

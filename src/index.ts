@@ -1,6 +1,7 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import dotenv from "dotenv";
+import { v2 as cloudinary } from "cloudinary";
 import express, { Response } from "express";
 import Stripe from "stripe";
 import CommentRouter from "./routes/comments.js";
@@ -15,27 +16,41 @@ import UserRouter from "./routes/user.js";
 import { connectDataBase } from "./utils/connectDb.js";
 import { errorMiddleware } from "./utils/error.js";
 
+// env setup
 dotenv.config({
   path: ".env",
 });
-const port_number: number = Number(process.env.PORT_NUMBER) | 5000;
-const url: string = process.env.MONGO_URL || "";
-const stripeKey = process.env.STRIPE_KEY || "";
+
+// cloudinary config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+});
+
+const port_number: number = Number(process.env.PORT_NUMBER)!;
+const url: string = process.env.MONGO_URL!;
+const stripeKey = process.env.STRIPE_KEY!;
 
 export const stripe = new Stripe(stripeKey);
 
 const app = express();
 connectDataBase({ url });
 
-// middlewares
 app.use(express.json()); // to get the data from body
 app.use(
   cors({
-    origin: "https://mern-stack-ecommerce-website-2024-client.vercel.app",
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   })
 );
 app.use(cookieParser()); // to get the value of token from cookie
+app.use(
+  express.urlencoded({
+    extended: false,
+  })
+);
 
 // router middlewares
 app.use("/api/v1/user", UserRouter);

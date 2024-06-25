@@ -1,32 +1,22 @@
 import multer from "multer";
-import { v4 as uuid } from 'uuid';
+import path from "path";
 
-const storage = multer.diskStorage({
-    destination(req, file, callback) {
-        callback(null, "uploads")
-    },
-    filename(req, file, callback) {
-        /*
-        
-            Here the file name we are giving is the orignal name only, but if we upload the same image again, then it will get uploaded, but when we want to delete any one image, both will get deleted as the name of the images will be same.
+const storage = multer.memoryStorage();
 
-            So we have to give any unique identifier to the image name, for that we will use another package i.e uuid.
-        
-        */
-
-        const id = uuid();
-
-        // ["uploads\macbook-air-midnight-gallery1-20220606", "jpg"]
-        const extension_name = file.originalname.split(".").pop(); 
-
-        const filename = `${id}.${extension_name}`
-
-        callback(null, filename)
-    }
-});
+const fileFilter = (req: any, file: any, cb: any) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ext !== ".png" && ext !== ".jpg" && ext !== ".jpeg" && ext !== ".gif") {
+    return cb(new Error("Only images are allowed"), false);
+  }
+  cb(null, true);
+};
 
 export const sinlgeUpload = multer({
-    storage
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 500000,
+  },
 }).single("photo");
 
 // multer().single("file") -> This is a middlware, we can use it in app.ts Now we can access it using req.file.photo

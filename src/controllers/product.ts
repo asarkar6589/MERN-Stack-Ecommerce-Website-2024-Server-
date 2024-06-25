@@ -1,291 +1,324 @@
 import { NextFunction, Request, Response } from "express";
-import { BaseQueryType, NewProductBody, SearchQuery } from "../types/product.js";
+import {
+  BaseQueryType,
+  NewProductBody,
+  SearchQuery,
+} from "../types/product.js";
 import productModel from "../models/product.js";
-import {rm} from "fs";
+import { rm } from "fs";
 import MyErrorClass from "../utils/error.js";
-import {faker} from "@faker-js/faker";
+import { faker } from "@faker-js/faker";
+import getDataUri from "../utils/dataURI.js";
+import cloudinary from "cloudinary";
 
-export const newProduct = async(req:Request<{}, {}, NewProductBody>, res:Response, next:NextFunction) => {
-    try {
-        const {
-            name,
-            stock,
-            price,
-            description,
-            category,
-            brand
-        } = req.body;
+export const newProduct = async (
+  req: Request<{}, {}, NewProductBody>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { name, stock, price, description, category, brand } = req.body;
 
-        const photo = req.file;
+    const photo = req.file;
 
-        if (!photo) {
-            return res.status(404).json({
-                success: false,
-                message: 'Please add the photo'
-            });
-        }
+    if (!photo) {
+      return res.status(404).json({
+        success: false,
+        message: "Please add the photo",
+      });
+    }
 
-        const productInfo = {
-            name,
-            stock,
-            price,
-            photo: photo.path,
-            description,
-            category,
-            brand
-        }
+    const fileUri = getDataUri(photo);
+    const myCloud = await cloudinary.v2.uploader.upload(fileUri.content!);
 
-        /*
+    const productInfo = {
+      name,
+      stock,
+      price,
+      photo: myCloud.secure_url,
+      description,
+      category,
+      brand,
+    };
+
+    /*
         
             If some gave the photo but failed to give other informations, then the product will not be created but, the photo will be uploaded in the uploads folder, so we have to delete it.
         
         */
-        if (!name || !stock || !price || !description || !category || !brand) {
-            rm(photo.path, () => {
-                console.log("Photo Deleted");
-            });
-            return res.status(404).json({
-                success: false,
-                message: 'Please add all the information'
-            });
-        }
-
-        await productModel.create(productInfo);
-
-        return res.status(201).json({
-            success: true,
-            message: 'Product created'
-        });
-    } catch (error:any) {
-        return next(new MyErrorClass("Internal Server Error", 500));
+    if (!name || !stock || !price || !description || !category || !brand) {
+      rm(photo.path, () => {
+        console.log("Photo Deleted");
+      });
+      return res.status(404).json({
+        success: false,
+        message: "Please add all the information",
+      });
     }
-}
 
-export const updateProduct = async(req:Request, res:Response, next:NextFunction) => {
-    try {
-        const {id} = req.params;
+    await productModel.create(productInfo);
 
-        const product = await productModel.findById(id);
+    return res.status(201).json({
+      success: true,
+      message: "Product created",
+    });
+  } catch (error: any) {
+    return next(new MyErrorClass("Internal Server Error", 500));
+  }
+};
 
-        if (!product) {
-            return res.status(404).json({
-                success: false,
-                message: 'Product not found'
-            })
-        }
+export const updateProduct = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
 
-        const {
-            name,
-            stock,
-            price,
-            description,
-            category,
-            brand
-        } = req.body;
+    const product = await productModel.findById(id);
 
-        console.log(name);
-        console.log(stock);
-
-        const photo = req.file;
-
-        if (name) {
-            product.name = name;
-        }
-
-        if (stock) {
-            product.stock = stock
-        }
-
-        if (price) {
-            product.price = price
-        }
-
-        if (description) {
-            product.description = description
-        }
-
-        if (category) {
-            product.category = category
-        }
-
-        if (brand) {
-            product.brand = brand
-        }
-
-        if (photo) {
-            rm(product.photo, () => {
-                console.log("The Previous photo deleted");
-            });
-            product.photo = photo.path;
-        }
-
-        await product.save();
-
-        return res.status(200).json({
-            success: true,
-            product
-        });
-    } catch (error:any) {
-        return next(new MyErrorClass("Internal Server Error", 500));
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
     }
-}
 
-export const deleteProduct = async(req:Request, res:Response, next:NextFunction) => {
-    try {
-        const {id} = req.params;
+    const { name, stock, price, description, category, brand } = req.body;
 
-        const product = await productModel.findById(id);
-
-        if (!product) {
-            return next(new MyErrorClass("Product not found", 404));
-        }
-
-        rm(product.photo, () => {
-            console.log("Photo is deleted");
-        });
-
-        await product.deleteOne();
-
-        return res.status(200).json({
-            success: true,
-            message: 'Product deleted successfully'
-        });
-    } catch (error:any) {
-        return next(new MyErrorClass(error.message || "Internal Server Error", 500));
+    if (name) {
+      product.name = name;
     }
-}
 
-export const singleProduct = async(req:Request, res:Response, next:NextFunction) => {
-    try {
-        const {id} = req.params;
-
-        const product = await productModel.findById(id);
-
-        if (!product) {
-            return next(new MyErrorClass("Product not found", 404));
-        }
-
-        return res.status(201).json({
-            success: true,
-            product
-        });
-    } catch (error:any) {
-        return next(new MyErrorClass("Internal Server Error", 500));
+    if (stock) {
+      product.stock = stock;
     }
-}
 
-export const latestProduct = async(req:Request, res:Response, next:NextFunction) => {
-    try {
-        const products = await productModel.find({}).limit(8);
-
-        return res.status(201).json({
-            success: true,
-            products
-        });
-    } catch (error:any) {
-        return next(new MyErrorClass("Internal Server Error", 500));
+    if (price) {
+      product.price = price;
     }
-}
 
-export const getCategories = async(req:Request, res:Response, next:NextFunction) => {
-    try {
-        const category = await productModel.distinct("category");
-
-        return res.status(201).json({
-            success: true,
-            category
-        });
-    } catch (error:any) {
-        return next(new MyErrorClass("Internal Server Error", 500));
+    if (description) {
+      product.description = description;
     }
-}
 
-export const getBrand = async(req:Request, res:Response, next:NextFunction) => {
-    try {
-        const brands = await productModel.distinct("brand");
-
-        return res.status(201).json({
-            success: true,
-            brands
-        });
-    } catch (error:any) {
-        return next(new MyErrorClass("Internal Server Error", 500));
+    if (category) {
+      product.category = category;
     }
-}
 
-export const searchProduct = async(req:Request<{}, {}, {}, SearchQuery>, res:Response, next:NextFunction) => {
-    try {
-        const {name, sort, price, category, brand} = req.query;
-        const page = Number(req.query.page) || 1;
-        const limit = 8; // number_of_products_in_one_Page
-        const number_of_skipped_products = (page - 1) * limit;
-        const BaseQuery : BaseQueryType = {};
+    if (brand) {
+      product.brand = brand;
+    }
 
-        if (name) {
-            BaseQuery.name = {
-                $regex: name,
-                $options: "i"
+    const photo = req.file;
+    if (photo) {
+      const fileUri = getDataUri(photo);
+      const myCloud = await cloudinary.v2.uploader.upload(fileUri.content!);
+      product.photo = myCloud.secure_url;
+    }
+
+    await product.save();
+
+    return res.status(200).json({
+      success: true,
+      product,
+    });
+  } catch (error: any) {
+    return next(new MyErrorClass("Internal Server Error", 500));
+  }
+};
+
+export const deleteProduct = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+
+    const product = await productModel.findById(id);
+
+    if (!product) {
+      return next(new MyErrorClass("Product not found", 404));
+    }
+
+    rm(product.photo, () => {
+      console.log("Photo is deleted");
+    });
+
+    await product.deleteOne();
+
+    return res.status(200).json({
+      success: true,
+      message: "Product deleted successfully",
+    });
+  } catch (error: any) {
+    return next(
+      new MyErrorClass(error.message || "Internal Server Error", 500)
+    );
+  }
+};
+
+export const singleProduct = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+
+    const product = await productModel.findById(id);
+
+    if (!product) {
+      return next(new MyErrorClass("Product not found", 404));
+    }
+
+    return res.status(201).json({
+      success: true,
+      product,
+    });
+  } catch (error: any) {
+    return next(new MyErrorClass("Internal Server Error", 500));
+  }
+};
+
+export const latestProduct = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const products = await productModel.find({}).limit(8);
+
+    return res.status(201).json({
+      success: true,
+      products,
+    });
+  } catch (error: any) {
+    return next(new MyErrorClass("Internal Server Error", 500));
+  }
+};
+
+export const getCategories = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const category = await productModel.distinct("category");
+
+    return res.status(201).json({
+      success: true,
+      category,
+    });
+  } catch (error: any) {
+    return next(new MyErrorClass("Internal Server Error", 500));
+  }
+};
+
+export const getBrand = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const brands = await productModel.distinct("brand");
+
+    return res.status(201).json({
+      success: true,
+      brands,
+    });
+  } catch (error: any) {
+    return next(new MyErrorClass("Internal Server Error", 500));
+  }
+};
+
+export const searchProduct = async (
+  req: Request<{}, {}, {}, SearchQuery>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { name, sort, price, category, brand } = req.query;
+    const page = Number(req.query.page) || 1;
+    const limit = 8; // number_of_products_in_one_Page
+    const number_of_skipped_products = (page - 1) * limit;
+    const BaseQuery: BaseQueryType = {};
+
+    if (name) {
+      BaseQuery.name = {
+        $regex: name,
+        $options: "i",
+      };
+    }
+
+    if (price) {
+      BaseQuery.price = {
+        $lte: Number(price),
+      };
+    }
+
+    if (category) {
+      BaseQuery.category = category;
+    }
+
+    if (brand) {
+      BaseQuery.brand = brand;
+    }
+
+    const productsPromise = productModel
+      .find(BaseQuery)
+      .sort(
+        sort
+          ? {
+              price: sort === "asc" ? 1 : -1,
             }
-        }
+          : undefined
+      )
+      .limit(limit)
+      .skip(number_of_skipped_products);
 
-        if (price) {
-            BaseQuery.price = {
-                $lte: Number(price)
-            }
-        }
-
-        if (category) {
-            BaseQuery.category = category
-        }
-
-        if (brand) {
-            BaseQuery.brand = brand
-        }
-
-        const productsPromise = productModel.find(BaseQuery).sort(
-            sort ? {
-                price: sort === "asc" ? 1 : -1
-            } : undefined
-        ).limit(limit).skip(number_of_skipped_products);
-
-        /*
+    /*
         
             we have separately written this for the purpose of pagination only. If we write products with skip and limit, the we will not get the total page number. So we for pagination we want the filtered products but with limit and skip.
 
         */
-        const filteredOnlyProductsPromise = productModel.find(BaseQuery);
+    const filteredOnlyProductsPromise = productModel.find(BaseQuery);
 
-        const [products, filteredOnlyProducts] = await Promise.all([
-            productsPromise,
-            filteredOnlyProductsPromise
-        ]);
+    const [products, filteredOnlyProducts] = await Promise.all([
+      productsPromise,
+      filteredOnlyProductsPromise,
+    ]);
 
-        const total_pages = Math.ceil(filteredOnlyProducts.length / limit);
+    const total_pages = Math.ceil(filteredOnlyProducts.length / limit);
 
-        return res.status(200).json({
-            success: true,
-            products,
-            total_pages
-        })
-    } catch (error:any) {
-        return next(new MyErrorClass("Internal Server Error", 500));
-    }
-}
+    return res.status(200).json({
+      success: true,
+      products,
+      total_pages,
+    });
+  } catch (error: any) {
+    return next(new MyErrorClass("Internal Server Error", 500));
+  }
+};
 
-export const getAllAdminProducts = async(req:Request, res:Response, next:NextFunction) => {
-    try {
-        const products = await productModel.find({});
+export const getAllAdminProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const products = await productModel.find({});
 
-        return res.status(200).json({
-            success: true,
-            products,
-            len: products.length
-        });
-    } catch (error) {
-        return next(new MyErrorClass("Internal Server Error", 500));
-    }
-}
-
+    return res.status(200).json({
+      success: true,
+      products,
+      len: products.length,
+    });
+  } catch (error) {
+    return next(new MyErrorClass("Internal Server Error", 500));
+  }
+};
 
 /*
 
